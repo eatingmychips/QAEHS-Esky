@@ -24,7 +24,7 @@ SnoozeAlarm  alarm;
 SnoozeBlock config_teensy40( usb, alarm, digital);
 int led = 13;
 int flag = 0;
-int counter = 0; //when counter = 6*4 stop
+int counter = 0; //when counter = 2880 stop
 
 void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int rpm);
 
@@ -49,9 +49,9 @@ void setup() {
 // stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int rpm)
 
 void loop() {
-  // int who=Snooze.hibernate( config_teensy40 );
-  if (counter == 2881) { //24 Hou r runtime
-    // Stop the loop after 300 iterations
+  
+  if (counter == 2881) { //24 Hour runtime
+    // Stop the loop after 2880 iterations
     while (true) {
       // Infinite loop to halt execution
     }
@@ -59,22 +59,21 @@ void loop() {
 
   if (flag == 0) {
     stepper_act(22, 3, 1, 4, 350);
-    delay(25000);//40000
-    flag = 2;
-    
+    delay(25000); // 25 second delay to push water adequately into pump
+    flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
   }
 
   else if (flag == 1) {
-    stepper_act(22, 3, 1, 4, 250);
-    delay(600);//20000
-    flag = 2;
+    stepper_act(22, 3, 1, 4, 250); // Turn pump on
+    delay(600); // 600ms
+    flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
   }
 
   else if(flag == 2){
-    stepper_act(22, 3, 0, 4, 0);
-    flag = 1;
-    counter++;
-    delay(29300);
+    stepper_act(22, 3, 0, 4, 0); // Turn pump off
+    counter++; // Iterate the counter
+    delay(29300); // Delay for 29.3 seconds
+    flag = 1; // Send system back to pump on (flag = 1)
   }
 
 }
