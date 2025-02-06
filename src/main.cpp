@@ -66,7 +66,7 @@ void setup() {
 void loop() {
   // Wait for IR receiver to get message from remote
   while (IRCode == 0){ 
-    if (irrecv.decode(&results)){
+    if (irrecv.decode()){
       IRCode = results.value;
       if (IRCode == ZERO || ONE || TWO || THREE){ // If IR value received is valid
         continue;
@@ -96,7 +96,7 @@ void loop() {
       return;
   }
 
-  
+
 
   if (counter == 2881) { //24 Hour runtime
     // Stop the loop after 2880 iterations
