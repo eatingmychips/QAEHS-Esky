@@ -32,7 +32,7 @@ void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int rpm);
 
 
 // Setup IR Receiver 
-int RECV_PIN = 11; // Define input pin on arduino 
+int RECV_PIN = 6; // Define input pin on arduino 
 decode_results results;
 long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
 #define ZERO 0xFF6897 // HEX code for the 0 button
@@ -65,6 +65,11 @@ void setup() {
 
 void loop() {
   // Wait for IR receiver to get message from remote
+  digitalWrite(led, HIGH);
+  delay(1000); 
+  digitalWrite(led, LOW);
+
+  
   while (IRCode == 0){ 
     if (irrecv.decode()){
       IRCode = results.value;
