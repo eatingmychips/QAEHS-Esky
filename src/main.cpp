@@ -50,7 +50,7 @@ void setup() {
 
 void loop() {
   // int who=Snooze.hibernate( config_teensy40 );
-  if (counter == 2881) { //24 Hour runtime
+  if (counter == 2881) { //24 Hou r runtime
     // Stop the loop after 300 iterations
     while (true) {
       // Infinite loop to halt execution
@@ -74,7 +74,7 @@ void loop() {
     stepper_act(22, 3, 0, 4, 0);
     flag = 1;
     counter++;
-    delay(30000);
+    delay(29300);
   }
 
 }
