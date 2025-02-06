@@ -26,6 +26,8 @@ int led = 13;
 int flag = 0;
 int counter = 0; //when counter = 2880 stop
 
+int start_delay = 12; // Specify delay in hours 
+
 void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int rpm);
 
 time_t getTeensy3Time() {
@@ -56,6 +58,9 @@ void loop() {
       // Infinite loop to halt execution
     }
   }
+  else if (counter == 0) { 
+    delay(start_delay*60*60*1000);
+  }
 
   if (flag == 0) {
     stepper_act(22, 3, 1, 4, 350);
@@ -68,15 +73,18 @@ void loop() {
     delay(600); // 600ms
     flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
   }
+  
 
   else if(flag == 2){
     stepper_act(22, 3, 0, 4, 0); // Turn pump off
     counter++; // Iterate the counter
-    delay(29300); // Delay for 29.3 seconds
+    delay(28100); // Delay for 29.3 seconds
     flag = 1; // Send system back to pump on (flag = 1)
   }
 
 }
+
+
 
 //------------------Set RTC -------------------------------
 // Sets the RTC from the serial monitor
