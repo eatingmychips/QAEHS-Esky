@@ -13,7 +13,7 @@
 #include <FreqCount.h>
 #include <SPI.h>
 #include <Arduino.h>
-
+#include <IRremote.h>
 
 
 // Load drivers
@@ -30,6 +30,18 @@ int start_delay = 12; // Specify delay in hours
 
 void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int rpm);
 
+
+// Setup IR Receiver 
+int RECV_PIN = 11; // Define input pin on arduino 
+decode_results results;
+long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
+#define ZERO 0xFF6897 // HEX code for the 0 button
+#define ONE 0xFF30CF   // HEX code for the 1 button
+#define TWO 0xFF18E7 // HEX code for the 2 button
+#define THREE 0xFF7A85 // HEX code for the 3 button
+
+
+IRrecv irrecv(RECV_PIN);
 time_t getTeensy3Time() {
 	return Teensy3Clock.get();
 }
@@ -46,21 +58,53 @@ void setup() {
   pinMode(10, OUTPUT);
   pinMode(led, OUTPUT);
 
+  irrecv.enableIRIn(); // Start the receiver
 }
 
 // stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int rpm)
 
 void loop() {
+  // Wait for IR receiver to get message from remote
+  while (IRCode == 0){ 
+    if (irrecv.decode(&results)){
+      IRCode = results.value;
+      if (IRCode == ZERO || ONE || TWO || THREE){ // If IR value received is valid
+        continue;
+      }
+      else {
+        IRCode = 0;
+      }
+      irrecv.resume(); // Receive the next value
+    }
+  }
+
+  switch (IRCode) {
+    case ZERO: //Start Immediately  
+      break;
+    
+    case ONE: // Delay for 12hrs
+      delay(12*60*60*1000);
+      break;
+
+    case TWO: // Delay for 24hrs
+      delay(24*60*60*1000); 
+      break;
+    case THREE: // Delay for 48hrs
+      delay(48*60*60*1000);
+      break;
+    default: // We shouldn't get here but just in case. 
+      return;
+  }
+
   
+
   if (counter == 2881) { //24 Hour runtime
     // Stop the loop after 2880 iterations
     while (true) {
       // Infinite loop to halt execution
     }
   }
-  else if (counter == 0) { 
-    delay(start_delay*60*60*1000);
-  }
+
 
   if (flag == 0) {
     stepper_act(22, 3, 1, 4, 350);
