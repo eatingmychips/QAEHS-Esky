@@ -145,7 +145,7 @@ void loop() {
   else if(flag == 2){
     stepper_act(22, 3, 0, 4, 0); // Turn pump off
     counter++; // Iterate the counter
-    delay(28100); // Delay for 29.3 seconds
+    delay(28100); // Delay for 28.1 seconds
     flag = 1; // Send system back to pump on (flag = 1)
   }
 
