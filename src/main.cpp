@@ -71,7 +71,58 @@ void setup() {
 // stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int rpm)
 
 void loop() {
-  
+    // Wait for IR receiver to get message from remote
+
+
+  while (IRCode == 0){ 
+    if (IrReceiver.decode()){
+      IRCode = IrReceiver.decodedIRData.decodedRawData;
+      Serial.println(IRCode, HEX);
+      if ((IRCode == ZERO || IRCode == ONE || IRCode == TWO || IRCode == THREE)){ // If IR value received is valid
+        continue;
+      }
+      else {
+        IRCode = 0;
+        Serial.println("Hello");
+      }
+      IrReceiver.resume(); // Receive the next value
+    }
+  }
+
+  if (IRCode == ZERO) { // Start immediately
+    delay(1000);
+    digitalWrite(led, HIGH);
+    delay(1000); 
+    digitalWrite(led, LOW);
+    delay(3000);
+
+  } else if (IRCode == ONE) { // Delay for 12 hours
+    delay(3000);
+    for (int i = 1; i <= 2; i++) {
+      digitalWrite(led, HIGH);
+      delay(1000); 
+      digitalWrite(led, LOW);
+    }
+    delay(10000);
+
+  } else if (IRCode == TWO) { // Delay for 24 hours
+    for (int i = 1; i <= 4; i++) {
+      digitalWrite(led, HIGH);
+      delay(1000); 
+      digitalWrite(led, LOW);
+    }
+    delay(24*60*60*1000);
+
+  } else if (IRCode == THREE) { // Delay for 48 hours 
+    for (int i = 1; i <= 6; i++) {
+      digitalWrite(led, HIGH);
+      delay(1000); 
+      digitalWrite(led, LOW);
+    }
+    delay(48*60*60*1000);
+  }
+
+
   if (counter == 2881) { //24 Hour runtime
     // Stop the loop after 2880 iterations
     while (true) {
