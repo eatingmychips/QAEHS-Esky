@@ -13,6 +13,8 @@
 #include <FreqCount.h>
 #include <SPI.h>
 #include <Arduino.h>
+#include <IRremote.h>
+#include "PinDefinitionsAndMore.h"
 
 
 
@@ -31,6 +33,18 @@ int start_delay = 12; // Specify delay in hours
 void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int duty);
 void intialise_pump(int pin, int dir_pin, int clockwise, int en_pin, int duty);
 
+
+
+// Setup IR Receiver 
+int RECV_PIN = 6; // Define input pin on arduino 
+long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
+#define ZERO 0xE916FF00 // HEX code for the 0 button
+#define ONE 0xF30CFF00   // HEX code for the 1 button
+#define TWO 0xE718FF00 // HEX code for the 2 button
+#define THREE 0xA15EFF00 // HEX code for the 3 button
+
+
+
 time_t getTeensy3Time() {
 	return Teensy3Clock.get();
 }
@@ -47,6 +61,11 @@ void setup() {
   pinMode(10, OUTPUT);
   pinMode(led, OUTPUT);
 
+  digitalWrite(led, HIGH);
+  delay(3000); 
+  digitalWrite(led, LOW);
+
+  IrReceiver.begin(RECV_PIN, ENABLE_LED_FEEDBACK); // Start the receiver
 }
 
 // stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int rpm)
@@ -79,6 +98,7 @@ void loop() {
   else if(flag == 2){
     stepper_act(22, 3, 1, 4, 0); // Turn pump off
     counter++; // Iterate the counter
+    delay(28100); // Delay for 28.1 seconds
     delay(3000); // Delay for 29.3 seconds
     flag = 1; // Send system back to pump on (flag = 1)
   }
