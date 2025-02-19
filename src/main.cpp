@@ -122,6 +122,11 @@ void loop() {
     delay(48*60*60*1000);
   }
 
+  
+  intialise_pump(22, 3, 1, 4, 90);
+  delay(30000); // 25 second delay to push water adequately into pump
+  stepper_act(22,3,1,4,0);
+  delay(2000);
   stepper_act(22, 3, 1, 4, 10); 
   delay(24*60*60*1000);
   stepper_act(22,3,1,4,0);
