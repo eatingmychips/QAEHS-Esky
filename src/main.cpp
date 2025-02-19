@@ -42,6 +42,7 @@ unsigned long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
 #define ONE 0xF30CFF00UL   // HEX code for the 1 button
 #define TWO 0xE718FF00UL // HEX code for the 2 button
 #define THREE 0xA15EFF00UL // HEX code for the 3 button
+#define EQ 0xF609FF00UL
 
 
 
@@ -80,6 +81,10 @@ void loop() {
       Serial.println(IRCode, HEX);
       if ((IRCode == ZERO || IRCode == ONE || IRCode == TWO || IRCode == THREE)){ // If IR value received is valid
         continue;
+      }
+      else if (IRCode == EQ) {
+        intialise_pump(22, 3, 1, 4, 90);
+        IRCode = 0;
       }
       else {
         IRCode = 0;
@@ -123,13 +128,11 @@ void loop() {
   }
 
   
-  intialise_pump(22, 3, 1, 4, 90);
-  delay(30000); // 25 second delay to push water adequately into pump
-  stepper_act(22,3,1,4,0);
+
   delay(2000);
-  stepper_act(22, 3, 1, 4, 10); 
-  delay(24*60*60*1000);
-  stepper_act(22,3,1,4,0);
+  stepper_act(22, 3, 1, 4, 10); // Turn pump on with 10% duty cycle
+  delay(24*60*60*1000); // Run for 24 hours
+  stepper_act(22,3,1,4,0); // Turn pump off
   counter += 1; 
 
   if (counter == 1){ 
@@ -233,4 +236,6 @@ void intialise_pump(int pin, int dir_pin, int clockwise, int en_pin, int duty) {
       analogWriteFrequency(pin, 200000); 
       analogWrite(pin, duty * 1023 / 100);    
     }
+  delay(120000);
+  stepper_act(22,3,1,4,0);
 }
