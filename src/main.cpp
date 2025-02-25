@@ -42,7 +42,7 @@ unsigned long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
 #define ONE 0xF30CFF00UL   // HEX code for the 1 button
 #define TWO 0xE718FF00UL // HEX code for the 2 button
 #define THREE 0xA15EFF00UL // HEX code for the 3 button
-#define EQ 0xF609FF00UL
+#define EQ 0xF609FF00UL // HEX code for the EQ button: Used for running motor intialisation
 
 
 
@@ -66,7 +66,7 @@ void setup() {
   delay(3000); 
   digitalWrite(led, LOW);
 
-  IrReceiver.begin(RECV_PIN, ENABLE_LED_FEEDBACK); // Start the receiver
+  IrReceiver.begin(RECV_PIN, DISABLE_LED_FEEDBACK); // Start the receiver
 }
 
 // stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int rpm)
@@ -88,7 +88,7 @@ void loop() {
       }
       else {
         IRCode = 0;
-        Serial.println("Hello");
+        Serial.println(IRCode);
       }
       IrReceiver.resume(); // Receive the next value
     }
@@ -140,36 +140,6 @@ void loop() {
       // Infinite loop to halt execution
     }
   }
-  // if (counter == 2881) { //24 Hour runtime
-  //   // Stop the loop after 2880 iterations
-  //   while (true) {
-  //     // Infinite loop to halt execution
-  //   }
-  // }
-  // else if (counter == 0) { 
-  //   delay(1000);
-  // }
-
-  // if (flag == 0) {
-  //   intialise_pump(22, 3, 1, 4, 90);
-  //   delay(25000); // 25 second delay to push water adequately into pump
-  //   flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
-  // }
-
-  // else if (flag == 1) {
-  //   stepper_act(22, 3, 1, 4, 10); // Turn pump on
-  //   delay(60000); // 600ms
-  //   flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
-  // }
-  
-
-  // else if(flag == 2){
-  //   stepper_act(22, 3, 1, 4, 0); // Turn pump off
-  //   counter++; // Iterate the counter
-  //   delay(28100); // Delay for 28.1 seconds
-  //   delay(3000); // Delay for 29.3 seconds
-  //   flag = 1; // Send system back to pump on (flag = 1)
-  // }
 
 }
 
