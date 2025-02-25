@@ -38,11 +38,11 @@ void intialise_pump(int pin, int dir_pin, int clockwise, int en_pin, int duty);
 // Setup IR Receiver 
 int RECV_PIN = 6; // Define input pin on arduino 
 unsigned long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
-#define ZERO 0xE916FF00UL // HEX code for the 0 button
-#define ONE 0xF30CFF00UL   // HEX code for the 1 button
-#define TWO 0xE718FF00UL // HEX code for the 2 button
-#define THREE 0xA15EFF00UL // HEX code for the 3 button
-#define EQ 0xF609FF00UL // HEX code for the EQ button: Used for running motor intialisation
+#define ONE 0xBA45FF00   // HEX code for the 1 button
+#define TWO 0xB946FF00 // HEX code for the 2 button
+#define THREE 0xB847FF00 // HEX code for the 3 button
+#define HASH 0xF20DFF00 // HEX code for the # button 
+#define OK 0xE31CFF00  // HEX code for the OK button
 
 
 
@@ -79,10 +79,10 @@ void loop() {
     if (IrReceiver.decode()){
       IRCode = IrReceiver.decodedIRData.decodedRawData;
       Serial.println(IRCode, HEX);
-      if ((IRCode == ZERO || IRCode == ONE || IRCode == TWO || IRCode == THREE)){ // If IR value received is valid
+      if ((IRCode == OK || IRCode == ONE || IRCode == TWO || IRCode == THREE)){ // If IR value received is valid
         continue;
       }
-      else if (IRCode == EQ) {
+      else if (IRCode == HASH) {
         intialise_pump(22, 3, 1, 4, 90);
         IRCode = 0;
       }
@@ -94,7 +94,7 @@ void loop() {
     }
   }
 
-  if (IRCode == ZERO) { // Start immediately
+  if (IRCode == OK) { // Start immediately
     delay(1000);
     digitalWrite(led, HIGH);
     delay(1000); 
