@@ -106,24 +106,27 @@ void loop() {
       digitalWrite(led, HIGH);
       delay(500); 
       digitalWrite(led, LOW);
+      delay(500);
     }
-    delay(5);
+    delay(12*60*60*1000);
 
   } else if (IRCode == TWO) { // Delay for 24 hours
     for (int i = 1; i <= 4; i++) {
       digitalWrite(led, HIGH);
       delay(500); 
       digitalWrite(led, LOW);
+      delay(500);
     }
-      delay(10);
+      delay(24*60*60*1000);
 
   } else if (IRCode == THREE) { // Delay for 48 hours 
     for (int i = 1; i <= 6; i++) {
       digitalWrite(led, HIGH);
       delay(500); 
       digitalWrite(led, LOW);
+      delay(500);
     }
-    delay(15);
+    delay(48*60*60*1000);
   }
 
   
