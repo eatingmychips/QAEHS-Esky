@@ -25,7 +25,7 @@ SnoozeAlarm  alarm;
 
 SnoozeBlock config_teensy40( usb, alarm, digital);
 int led = 13;
-int flag = 0;
+int flag = 1;
 int counter = 0; //when counter = 2880 stop
 
 int start_delay = 12; // Specify delay in hours 
@@ -130,17 +130,28 @@ void loop() {
   }
 
   
-
-  delay(2000);
-  stepper_act(22, 3, 1, 4, 10); // Turn pump on with 10% duty cycle
-  delay(24*60*60*1000); // Run for 24 hours
-  stepper_act(22,3,1,4,0); // Turn pump off
-  counter += 1; 
-
-  if (counter == 1){ 
-    while(true){
+  if (counter == 2881) { //24 Hour runtime
+    // Stop the loop after 2880 iterations
+    while (true) {
       // Infinite loop to halt execution
     }
+  }
+  else if (counter == 0) { 
+    delay(1000);
+  }
+
+  else if (flag == 1) {
+    stepper_act(22, 3, 1, 4, 90); // Turn pump on
+    delay(1000); // 1s
+    flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
+  }
+  
+
+  else if(flag == 2){
+    stepper_act(22, 3, 1, 4, 0); // Turn pump off
+    counter++; // Iterate the counter
+    delay(29000); // Delay for 28.1 seconds
+    flag = 1; // Send system back to pump on (flag = 1)
   }
 
 }
