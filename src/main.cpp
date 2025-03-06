@@ -130,7 +130,7 @@ void loop() {
   }
 
   while (true){
-    if (counter == 2881) { //24 Hour runtime
+    if (counter == 4321) { //24 Hour runtime
       // Stop the loop after 2880 iterations
       while (true) {
         // Infinite loop to halt execution
@@ -141,8 +141,8 @@ void loop() {
     }
   
     else if (flag == 1) {
-      stepper_act(22, 3, 1, 4, 90); // Turn pump on
-      delay(1000); // 1s
+      stepper_act(22, 3, 1, 4, 60); // Turn pump on
+      delay(3000); // 3s
       flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
     }
     
@@ -150,7 +150,7 @@ void loop() {
     else if(flag == 2){
       stepper_act(22, 3, 1, 4, 0); // Turn pump off
       counter++; // Iterate the counter
-      delay(29000); // Delay for 28.1 seconds
+      delay(17000); // Delay for 17 seconds
       flag = 1; // Send system back to pump on (flag = 1)
     }
   }
