@@ -129,30 +129,32 @@ void loop() {
     delay(48*60*60*1000);
   }
 
+  while (true){
+    if (counter == 2881) { //24 Hour runtime
+      // Stop the loop after 2880 iterations
+      while (true) {
+        // Infinite loop to halt execution
+      }
+    }
+    else if (counter == 0) { 
+      delay(1000);
+    }
   
-  if (counter == 2881) { //24 Hour runtime
-    // Stop the loop after 2880 iterations
-    while (true) {
-      // Infinite loop to halt execution
+    else if (flag == 1) {
+      stepper_act(22, 3, 1, 4, 90); // Turn pump on
+      delay(1000); // 1s
+      flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
+    }
+    
+  
+    else if(flag == 2){
+      stepper_act(22, 3, 1, 4, 0); // Turn pump off
+      counter++; // Iterate the counter
+      delay(29000); // Delay for 28.1 seconds
+      flag = 1; // Send system back to pump on (flag = 1)
     }
   }
-  else if (counter == 0) { 
-    delay(1000);
-  }
 
-  else if (flag == 1) {
-    stepper_act(22, 3, 1, 4, 90); // Turn pump on
-    delay(1000); // 1s
-    flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
-  }
-  
-
-  else if(flag == 2){
-    stepper_act(22, 3, 1, 4, 0); // Turn pump off
-    counter++; // Iterate the counter
-    delay(29000); // Delay for 28.1 seconds
-    flag = 1; // Send system back to pump on (flag = 1)
-  }
 
 }
 
