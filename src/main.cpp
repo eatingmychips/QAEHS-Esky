@@ -41,7 +41,7 @@ unsigned long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
 #define ONE 0xBA45FF00   // HEX code for the 1 button
 #define TWO 0xB946FF00 // HEX code for the 2 button
 #define THREE 0xB847FF00 // HEX code for the 3 button
-#define FOUR 0xBB44FF00
+#define FOUR 0xBB44FF00 
 #define FIVE 0xBF40FF00
 #define SIX 0xBC43FF00
 #define SEVEN 0xF807FF00
