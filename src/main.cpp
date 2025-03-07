@@ -32,7 +32,7 @@ int start_delay = 12; // Specify delay in hours
 
 void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int duty);
 void intialise_pump(int pin, int dir_pin, int clockwise, int en_pin, int duty);
-
+void intermittent_sampling(int start_delay, int on_time, int off_time, int duty);
 
 
 // Setup IR Receiver 
@@ -41,6 +41,14 @@ unsigned long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
 #define ONE 0xBA45FF00   // HEX code for the 1 button
 #define TWO 0xB946FF00 // HEX code for the 2 button
 #define THREE 0xB847FF00 // HEX code for the 3 button
+#define FOUR 0xBB44FF00
+#define FIVE 0xBF40FF00
+#define SIX 0xBC43FF00
+#define SEVEN 0xF807FF00
+#define EIGHT 0xEA15FF00
+#define NINE 0xF609FF00
+#define STAR 0xE916FF00
+#define ZERO 0xE619FF00
 #define HASH 0xF20DFF00 // HEX code for the # button 
 #define OK 0xE31CFF00  // HEX code for the OK button
 
@@ -73,8 +81,6 @@ void setup() {
 
 void loop() {
     // Wait for IR receiver to get message from remote
-
-
   while (IRCode == 0){ 
     if (IrReceiver.decode()){
       IRCode = IrReceiver.decodedIRData.decodedRawData;
@@ -94,23 +100,23 @@ void loop() {
     }
   }
 
-  if (IRCode == OK) { // Start immediately
+  if (IRCode == OK) { // Start immediately Intermittent Sampling
     delay(1000);
     digitalWrite(led, HIGH);
     delay(1000); 
     digitalWrite(led, LOW);
     delay(1000);
 
-  } else if (IRCode == ONE) { // Delay for 12 hours
+  } else if (IRCode == ONE) { // Start immediately Old Code  
     for (int i = 1; i <= 2; i++) {
       digitalWrite(led, HIGH);
       delay(500); 
       digitalWrite(led, LOW);
       delay(500);
     }
-    delay(12*60*60*1000);
+    intermittent_sampling(0, 3, 17, 60);
 
-  } else if (IRCode == TWO) { // Delay for 24 hours
+  } else if (IRCode == TWO) { // Start immediately Continuous sampling
     for (int i = 1; i <= 4; i++) {
       digitalWrite(led, HIGH);
       delay(500); 
@@ -128,34 +134,6 @@ void loop() {
     }
     delay(48*60*60*1000);
   }
-
-  while (true){
-    if (counter == 4321) { //24 Hour runtime
-      // Stop the loop after 2880 iterations
-      while (true) {
-        // Infinite loop to halt execution
-      }
-    }
-    else if (counter == 0) { 
-      delay(1000);
-    }
-  
-    else if (flag == 1) {
-      stepper_act(22, 3, 1, 4, 60); // Turn pump on
-      delay(3000); // 3s
-      flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
-    }
-    
-  
-    else if(flag == 2){
-      stepper_act(22, 3, 1, 4, 0); // Turn pump off
-      counter++; // Iterate the counter
-      delay(17000); // Delay for 17 seconds
-      flag = 1; // Send system back to pump on (flag = 1)
-    }
-  }
-
-
 }
 
 
@@ -223,4 +201,89 @@ void intialise_pump(int pin, int dir_pin, int clockwise, int en_pin, int duty) {
     }
   delay(120000);
   stepper_act(22,3,1,4,0);
+}
+
+// Implementation of intermittent sampling
+// start_delay: Hours   on_time: seconds    off_time: seconds   duty: 1-100
+void intermittent_sampling(int start_delay, int on_time, int off_time, int duty){
+  delay(start_delay*1000*60*60);
+  while (true){
+    if (counter == 24*60*60/(on_time + off_time) + 1) { //24 Hour runtime
+      // Stop the loop after 2880 iterations
+      while (true) {
+        // Infinite loop to halt execution
+      }
+    }
+    else if (counter == 0) { 
+      delay(1000);
+    }
+  
+    else if (flag == 1) {
+      stepper_act(22, 3, 1, 4, duty); // Turn pump on
+      delay(on_time*1000); // 3s
+      flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
+    }
+    
+  
+    else if(flag == 2){
+      stepper_act(22, 3, 1, 4, 0); // Turn pump off
+      counter++; // Iterate the counter
+      delay(off_time*1000); // Delay for 17 seconds
+      flag = 1; // Send system back to pump on (flag = 1)
+    }
+  }
+}
+
+
+
+
+// OLD CODE 
+void stepper_act_old(int pin, int dir_pin, int clockwise, int en_pin, int rpm) { //todo: direction
+  //enable the stepper motor pin to hold the torque
+  //int timer = 0;
+  digitalWrite(en_pin, HIGH);
+  //from Pico_1.4_Peristaltic_Pump_Driver.pdf
+  //Open (or +5.0 V) = direction anti-clockwise / GND = direction clockwise
+  if (clockwise){
+    digitalWrite(dir_pin, LOW);
+  } else{
+    digitalWrite(dir_pin, HIGH);
+  }
+  if (rpm == 0) {
+    digitalWrite(led, LOW);    // turn the LED off by making the voltage LOW
+    //disable the drive pin
+    analogWrite(pin, 0);
+    //disable the enable pin
+    digitalWrite(en_pin, LOW);
+  } else {
+      digitalWrite(led, HIGH);   // turn the LED on (HIGH is the voltage level)
+      //1/256 micro stepping mode: 1 rotation = 51,200 (200 x 256) pulses. 51.2 kHz = 60 rpm, 512 kHz = 600 rpm
+      analogWriteFrequency(pin, rpm*51200/60); // 83rpm x 51200/60
+      // analogWriteResolution(12);
+      analogWrite(pin, 120);    
+      delay(1000);
+    }
+}
+
+void old_sampling(){ 
+  if (counter == 300) {
+    // Stop the loop after 300 iterations
+    while (true) {
+      // Infinite loop to halt execution
+    }
+  }
+
+  else if (flag == 1) {
+    stepper_act_old(22, 3, 1, 4, 350);
+    delay(3000);
+    flag = 2;
+    
+  } 
+
+  else if(flag == 2){
+    stepper_act_old(22, 3, 1, 4, 0);
+    flag = 1;
+    counter++;
+    delay(300000);
+  }
 }
