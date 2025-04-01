@@ -27,8 +27,9 @@ SnoozeBlock config_teensy40( usb, alarm, digital);
 int led = 13;
 int flag = 1;
 int counter = 0; //when counter = 2880 stop
+int analog_write_freq = 146485;
+int duty_cycle = 15;
 
-int start_delay = 12; // Specify delay in hours 
 
 void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int duty);
 void intialise_pump(int pin, int dir_pin, int clockwise, int en_pin, int duty);
@@ -62,7 +63,7 @@ void setup() {
   analogWriteResolution(10);
   Serial.begin(9600);
   alarm.setRtcTimer(0,0,2); // hour, min, sec (0,10,0)
-  setSyncProvider(getTeensy3Time); // Guess??????? it gets the time from the Serial5 monitor
+  setSyncProvider(getTeensy3Time); // Gets the time from the Serial5 monitor
   pinMode(LED_BUILTIN, OUTPUT);
   pinMode(3, OUTPUT);
   pinMode(4, OUTPUT);
@@ -73,6 +74,8 @@ void setup() {
   digitalWrite(led, HIGH);
   delay(3000); 
   digitalWrite(led, LOW);
+
+  analogWriteFrequency(22, analog_write_freq); 
 
   IrReceiver.begin(RECV_PIN, LED_FEEDBACK_DISABLED_COMPLETELY); // Start the receiver
 }
@@ -106,6 +109,7 @@ void loop() {
     delay(1000); 
     digitalWrite(led, LOW);
     delay(1000);
+    intermittent_sampling(0, 3, 27, duty_cycle);
 
   } else if (IRCode == ONE) { // Start immediately Old Code  
     for (int i = 1; i <= 2; i++) {
@@ -114,7 +118,7 @@ void loop() {
       digitalWrite(led, LOW);
       delay(500);
     }
-    intermittent_sampling(0, 3, 17, 60);
+    intermittent_sampling(12, 3, 27, duty_cycle);
 
   } else if (IRCode == TWO) { // Start immediately Continuous sampling
     for (int i = 1; i <= 4; i++) {
@@ -123,7 +127,8 @@ void loop() {
       digitalWrite(led, LOW);
       delay(500);
     }
-  
+    intermittent_sampling(24, 3, 27, duty_cycle);
+
 
   } else if (IRCode == THREE) { // Delay for 48 hours 
     for (int i = 1; i <= 6; i++) {
@@ -132,11 +137,9 @@ void loop() {
       digitalWrite(led, LOW);
       delay(500);
     }
-
+    intermittent_sampling(48, 3, 27, duty_cycle);
   }
 }
-
-
 
 //------------------Set RTC -------------------------------
 // Sets the RTC from the serial monitor
@@ -211,11 +214,7 @@ void intermittent_sampling(int start_delay, int on_time, int off_time, int duty)
       while (true) {
         // Infinite loop to halt execution
       }
-    }
-    else if (counter == 0) { 
-      delay(1000);
-    }
-  
+    }  
     else if (flag == 1) {
       stepper_act(22, 3, 1, 4, duty); // Turn pump on
       delay(on_time*1000); // 3s
@@ -234,54 +233,3 @@ void intermittent_sampling(int start_delay, int on_time, int off_time, int duty)
 
 
 
-
-// OLD CODE 
-void stepper_act_old(int pin, int dir_pin, int clockwise, int en_pin, int rpm) { //todo: direction
-  //enable the stepper motor pin to hold the torque
-  //int timer = 0;
-  digitalWrite(en_pin, HIGH);
-  //from Pico_1.4_Peristaltic_Pump_Driver.pdf
-  //Open (or +5.0 V) = direction anti-clockwise / GND = direction clockwise
-  if (clockwise){
-    digitalWrite(dir_pin, LOW);
-  } else{
-    digitalWrite(dir_pin, HIGH);
-  }
-  if (rpm == 0) {
-    digitalWrite(led, LOW);    // turn the LED off by making the voltage LOW
-    //disable the drive pin
-    analogWrite(pin, 0);
-    //disable the enable pin
-    digitalWrite(en_pin, LOW);
-  } else {
-      digitalWrite(led, HIGH);   // turn the LED on (HIGH is the voltage level)
-      //1/256 micro stepping mode: 1 rotation = 51,200 (200 x 256) pulses. 51.2 kHz = 60 rpm, 512 kHz = 600 rpm
-      analogWriteFrequency(pin, rpm*51200/60); // 83rpm x 51200/60
-      // analogWriteResolution(12);
-      analogWrite(pin, 120);    
-      delay(1000);
-    }
-}
-
-void old_sampling(){ 
-  if (counter == 300) {
-    // Stop the loop after 300 iterations
-    while (true) {
-      // Infinite loop to halt execution
-    }
-  }
-
-  else if (flag == 1) {
-    stepper_act_old(22, 3, 1, 4, 350);
-    delay(3000);
-    flag = 2;
-    
-  } 
-
-  else if(flag == 2){
-    stepper_act_old(22, 3, 1, 4, 0);
-    flag = 1;
-    counter++;
-    delay(300000);
-  }
-}
