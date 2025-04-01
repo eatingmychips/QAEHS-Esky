@@ -123,7 +123,7 @@ void loop() {
       digitalWrite(led, LOW);
       delay(500);
     }
-      delay(24*60*60*1000);
+  
 
   } else if (IRCode == THREE) { // Delay for 48 hours 
     for (int i = 1; i <= 6; i++) {
@@ -132,7 +132,7 @@ void loop() {
       digitalWrite(led, LOW);
       delay(500);
     }
-    delay(48*60*60*1000);
+
   }
 }
 
@@ -171,7 +171,6 @@ void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int duty) { //
     digitalWrite(en_pin, LOW);
   } else {
       digitalWrite(led, HIGH);   // turn the LED on (HIGH is the voltage level)
-      analogWriteFrequency(pin, 3500); 
       analogWrite(pin, duty * 1023 / 100);    
     }
 }
@@ -196,7 +195,6 @@ void intialise_pump(int pin, int dir_pin, int clockwise, int en_pin, int duty) {
     digitalWrite(en_pin, LOW);
   } else {
       digitalWrite(led, HIGH);   // turn the LED on (HIGH is the voltage level)
-      analogWriteFrequency(pin, 200000); 
       analogWrite(pin, duty * 1023 / 100);    
     }
   delay(120000);
