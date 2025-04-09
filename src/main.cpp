@@ -28,7 +28,7 @@ int led = 13;
 int flag = 1;
 int counter = 0; //when counter = 2880 stop
 int analog_write_freq = 146485;
-int duty_cycle = 15;
+int duty_cycle = 10;
 
 
 void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int duty);
@@ -225,7 +225,7 @@ void intermittent_sampling(int start_delay, int on_time, int off_time, int duty)
     else if(flag == 2){
       stepper_act(22, 3, 1, 4, 0); // Turn pump off
       counter++; // Iterate the counter
-      delay(off_time*1000); // Delay for 17 seconds
+      delay(off_time*1000); // Delay for 27 seconds
       flag = 1; // Send system back to pump on (flag = 1)
     }
   }
