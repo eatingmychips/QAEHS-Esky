@@ -17,23 +17,23 @@
 #include "PinDefinitionsAndMore.h"
 
 
+void intialise_pump(int duty, int time);
+void pump_set(bool on, bool clockwise, int duty);
+void blink_led(int times); 
+
 
 // Load drivers
 SnoozeDigital digital;
-SnoozeUSBSerial usb;
 SnoozeAlarm  alarm;
+SnoozeTimer timer; 
+SnoozeBlock config_off_sleep(timer); 
 
-SnoozeBlock config_teensy40( usb, alarm, digital);
-int led = 13;
+
 int flag = 1;
 int counter = 0; //when counter = 2880 stop
 int analog_write_freq = 146485;
 int duty_cycle = 10;
 
-
-void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int duty);
-void intialise_pump(int pin, int dir_pin, int clockwise, int en_pin, int duty);
-void intermittent_sampling(int start_delay, int on_time, int off_time, int duty);
 
 
 // Setup IR Receiver 
@@ -53,183 +53,178 @@ unsigned long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
 #define HASH 0xF20DFF00 // HEX code for the # button 
 #define OK 0xE31CFF00  // HEX code for the OK button
 
+// Setup Motor Pins
+#define AN_SPEED_PIN 14
+#define EN_MOTOR_PIN 4
+#define DIR_MOTOR_PIN 3
 
+
+
+enum SamplingState {
+  SAMPLING_IDLE, 
+  SAMPLING_WAIT_START, 
+  SAMPLING_PUMP_ON, 
+  SAMPLING_PUMP_OFF, 
+  SAMPLING_DONE
+};
+
+struct SamplingController { 
+  SamplingState state; 
+  uint32_t startDelayMs; 
+  uint32_t onTimeMs; 
+  uint32_t offTimeMs; 
+  uint32_t lastTransitionMs; 
+  uint32_t cyclesDone; 
+  uint32_t maxCycles; 
+  int duty;
+};
 
 time_t getTeensy3Time() {
 	return Teensy3Clock.get();
 }
 
+SamplingController sampling; 
+
+void start_intermittent_sampling(uint32_t delay, uint32_t onTimeSec, uint32_t offTimeSec, int dutycycle){ 
+  sampling.startDelayMs = delay * 3600000UL;
+  sampling.onTimeMs = onTimeSec * 1000UL; 
+  sampling.offTimeMs = offTimeSec * 1000UL; 
+  sampling.lastTransitionMs = millis(); 
+  sampling.cyclesDone = 0; 
+  sampling.maxCycles = 24UL * 3600UL / (onTimeSec + offTimeSec); 
+  sampling.duty = dutycycle; 
+  sampling.state = SAMPLING_WAIT_START;
+}
+
+void intermittent_sampling_update() { 
+  uint32_t now = millis(); 
+
+  switch(sampling.state) { 
+    case SAMPLING_IDLE: 
+      break; 
+    
+    case SAMPLING_WAIT_START:{
+      uint32_t startDelaySec = sampling.startDelayMs / 1000UL; 
+      if (startDelaySec == 0) { 
+        pump_set(true, true, sampling.duty); 
+        sampling.lastTransitionMs = millis(); 
+        sampling.state = SAMPLING_PUMP_ON; 
+        break;
+      }
+      timer.setTimer(startDelaySec); 
+      Snooze.deepSleep(config_off_sleep); 
+      pump_set(true, true, sampling.duty); 
+      sampling.lastTransitionMs = millis(); 
+      sampling.state = SAMPLING_PUMP_ON;
+      break; 
+    }
+    
+    case SAMPLING_PUMP_ON: 
+      if (now - sampling.lastTransitionMs >= sampling.onTimeMs) { 
+        pump_set(true, true, 0); 
+        sampling.lastTransitionMs = now; 
+        sampling.state = SAMPLING_PUMP_OFF; 
+      }
+      break;
+
+
+    case SAMPLING_PUMP_OFF:{
+      uint32_t offSeconds = sampling.offTimeMs / 1000UL; 
+      if (offSeconds == 0) offSeconds = 1; 
+
+      timer.setTimer(offSeconds); 
+      Snooze.sleep(config_off_sleep); 
+
+      sampling.cyclesDone++; 
+      if (sampling.cyclesDone >= sampling.maxCycles){ 
+        sampling.state = SAMPLING_DONE; 
+      }else { 
+        pump_set(true, true, sampling.duty); 
+        sampling.lastTransitionMs =now;
+        sampling.state = SAMPLING_PUMP_ON; 
+      }
+      
+      break;
+    }
+
+    case SAMPLING_DONE: 
+      pump_set(false, true, 0); 
+      sampling.state = SAMPLING_IDLE; 
+      break; 
+  }
+}
+
+void blink_led(int times) { 
+  for (int i=0; i<times; i++) { 
+    delay(1000); 
+    digitalWrite(LED_BUILTIN, HIGH); 
+    delay(1000);
+    digitalWrite(LED_BUILTIN, LOW); 
+  }
+}
+
+void handle_ir() { 
+  if (!IrReceiver.decode()){ 
+    return; 
+  }
+  unsigned long irCode = IrReceiver.decodedIRData.decodedRawData; 
+  
+  if (irCode == HASH) { 
+    intialise_pump(90, 120);
+  }else if (irCode  == OK){ 
+    blink_led(1); 
+    start_intermittent_sampling(0, 3, 27, duty_cycle); 
+  }else if (irCode == ONE) { 
+    blink_led(2); 
+    start_intermittent_sampling(12, 3, 27, duty_cycle);
+  }else if (irCode == TWO) { 
+    blink_led(4); 
+    start_intermittent_sampling(24, 3, 27, duty_cycle); 
+  }else if (irCode == THREE) { 
+    blink_led(6); 
+    start_intermittent_sampling(48, 3, 27, duty_cycle); 
+  }else if (irCode == STAR) { 
+    sampling.state = SAMPLING_IDLE;
+  }
+}
+
+void pump_set(bool on, bool clockwise, int duty) { //todo: direction
+  digitalWrite(EN_MOTOR_PIN, on ? HIGH : LOW);
+  digitalWrite(DIR_MOTOR_PIN, clockwise ? LOW : HIGH); 
+  analogWrite(AN_SPEED_PIN, on ? duty * 1023 / 100 : 0); 
+}
+
+
+void intialise_pump(int duty, int time) { //todo: direction
+  pump_set(true, true, duty); 
+  delay(time * 1000);  
+  pump_set(true, true, 0);
+}
+
+
 void setup() {
   analogWriteResolution(10);
   Serial.begin(9600);
-  alarm.setRtcTimer(0,0,2); // hour, min, sec (0,10,0)
+  alarm.setRtcTimer(0,0,2);
   setSyncProvider(getTeensy3Time); // Gets the time from the Serial5 monitor
   pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(3, OUTPUT);
-  pinMode(4, OUTPUT);
-  pinMode(22, OUTPUT);
-  pinMode(10, OUTPUT);
-  pinMode(led, OUTPUT);
+  pinMode(DIR_MOTOR_PIN, OUTPUT);
+  pinMode(EN_MOTOR_PIN, OUTPUT);
+  pinMode(AN_SPEED_PIN, OUTPUT);
 
-  digitalWrite(led, HIGH);
-  delay(3000); 
-  digitalWrite(led, LOW);
 
-  analogWriteFrequency(22, analog_write_freq); 
+  digitalWrite(LED_BUILTIN, HIGH);
+  delay(2000); 
+  digitalWrite(LED_BUILTIN, LOW);
+
+  analogWriteFrequency(AN_SPEED_PIN, analog_write_freq); 
 
   IrReceiver.begin(RECV_PIN, LED_FEEDBACK_DISABLED_COMPLETELY); // Start the receiver
 }
 
-// stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int rpm)
 
 void loop() {
-    // Wait for IR receiver to get message from remote
-  while (IRCode == 0){ 
-    if (IrReceiver.decode()){
-      IRCode = IrReceiver.decodedIRData.decodedRawData;
-      Serial.println(IRCode, HEX);
-      if ((IRCode == OK || IRCode == ONE || IRCode == TWO || IRCode == THREE)){ // If IR value received is valid
-        continue;
-      }
-      else if (IRCode == HASH) {
-        intialise_pump(22, 3, 1, 4, 90);
-        IRCode = 0;
-      }
-      else {
-        IRCode = 0;
-        Serial.println(IRCode);
-      }
-      IrReceiver.resume(); // Receive the next value
-    }
-  }
-
-  if (IRCode == OK) { // Start immediately Intermittent Sampling
-    delay(1000);
-    digitalWrite(led, HIGH);
-    delay(1000); 
-    digitalWrite(led, LOW);
-    delay(1000);
-    intermittent_sampling(0, 3, 27, duty_cycle);
-
-  } else if (IRCode == ONE) { // Start immediately Old Code  
-    for (int i = 1; i <= 2; i++) {
-      digitalWrite(led, HIGH);
-      delay(500); 
-      digitalWrite(led, LOW);
-      delay(500);
-    }
-    intermittent_sampling(12, 3, 27, duty_cycle);
-
-  } else if (IRCode == TWO) { // Start immediately Continuous sampling
-    for (int i = 1; i <= 4; i++) {
-      digitalWrite(led, HIGH);
-      delay(500); 
-      digitalWrite(led, LOW);
-      delay(500);
-    }
-    intermittent_sampling(24, 3, 27, duty_cycle);
-
-
-  } else if (IRCode == THREE) { // Delay for 48 hours 
-    for (int i = 1; i <= 6; i++) {
-      digitalWrite(led, HIGH);
-      delay(500); 
-      digitalWrite(led, LOW);
-      delay(500);
-    }
-    intermittent_sampling(48, 3, 27, duty_cycle);
-  }
+  handle_ir(); 
+  intermittent_sampling_update(); 
 }
-
-//------------------Set RTC -------------------------------
-// Sets the RTC from the serial monitor
-// 
-void setRTC(void) {
-  if (timeStatus() != timeSet) {
-    Serial5.println("Unable to sync with the RTC\r");
-  } else {
-    Serial5.println("RTC has set the system time\r");
-  }
-}
-
-/**stepper motor control
-
-*/
-void stepper_act(int pin, int dir_pin, int clockwise, int en_pin, int duty) { //todo: direction
-  //enable the stepper motor pin to hold the torque
-  //int timer = 0;
-  digitalWrite(en_pin, HIGH);
-  //from Pico_1.4_Peristaltic_Pump_Driver.pdf
-  //Open (or +5.0 V) = direction anti-clockwise / GND = direction clockwise
-  if (clockwise){
-    digitalWrite(dir_pin, LOW);
-  } else{
-    digitalWrite(dir_pin, HIGH);
-  }
-  if (duty == 0) {
-    digitalWrite(led, LOW);    // turn the LED off by making the voltage LOW
-    //disable the drive pin
-    analogWrite(pin, 0);
-    //disable the enable pin
-    digitalWrite(en_pin, LOW);
-  } else {
-      digitalWrite(led, HIGH);   // turn the LED on (HIGH is the voltage level)
-      analogWrite(pin, duty * 1023 / 100);    
-    }
-}
-
-
-void intialise_pump(int pin, int dir_pin, int clockwise, int en_pin, int duty) { //todo: direction
-  //enable the stepper motor pin to hold the torque
-  //int timer = 0;
-  digitalWrite(en_pin, HIGH);
-  //from Pico_1.4_Peristaltic_Pump_Driver.pdf
-  //Open (or +5.0 V) = direction anti-clockwise / GND = direction clockwise
-  if (clockwise){
-    digitalWrite(dir_pin, LOW);
-  } else{
-    digitalWrite(dir_pin, HIGH);
-  }
-  if (duty == 0) {
-    digitalWrite(led, LOW);    // turn the LED off by making the voltage LOW
-    //disable the drive pin
-    analogWrite(pin, 0);
-    //disable the enable pin
-    digitalWrite(en_pin, LOW);
-  } else {
-      digitalWrite(led, HIGH);   // turn the LED on (HIGH is the voltage level)
-      analogWrite(pin, duty * 1023 / 100);    
-    }
-  delay(120000);
-  stepper_act(22,3,1,4,0);
-}
-
-// Implementation of intermittent sampling
-// start_delay: Hours   on_time: seconds    off_time: seconds   duty: 1-100
-void intermittent_sampling(int start_delay, int on_time, int off_time, int duty){
-  delay(start_delay*1000*60*60);
-  while (true){
-    if (counter == 24*60*60/(on_time + off_time) + 1) { //24 Hour runtime
-      // Stop the loop after 2880 iterations
-      while (true) {
-        // Infinite loop to halt execution
-      }
-    }  
-    else if (flag == 1) {
-      stepper_act(22, 3, 1, 4, duty); // Turn pump on
-      delay(on_time*1000); // 3s
-      flag = 2; // Send system to 2nd flag (wait for 29.3 seconds)
-    }
-    
-  
-    else if(flag == 2){
-      stepper_act(22, 3, 1, 4, 0); // Turn pump off
-      counter++; // Iterate the counter
-      delay(off_time*1000); // Delay for 27 seconds
-      flag = 1; // Send system back to pump on (flag = 1)
-    }
-  }
-}
-
-
 
