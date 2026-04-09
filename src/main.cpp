@@ -31,8 +31,8 @@ SnoozeBlock config_off_sleep(timer);
 
 int flag = 1;
 int counter = 0; //when counter = 2880 stop
-int analog_write_freq = 980;
-int duty_cycle = 90;
+int analog_write_freq = 146485;
+int duty_cycle = 10;
 int MAX_INIT_SECONDS = 120; 
 
 
@@ -115,14 +115,13 @@ void intermittent_sampling_update() {
       break;
 
     case SAMPLING_WAIT_START:{
-      if (sampling.startDelayMs == 0) { 
-        Serial.println("Pump Turning On");
+      uint32_t startDelaySec = sampling.startDelayMs / 1000UL; 
+      if (startDelaySec == 0) { 
         pump_set(true, true, sampling.duty); 
         sampling.lastTransitionMs = millis(); 
         sampling.state = SAMPLING_PUMP_ON; 
         break;
       }
-      uint32_t startDelaySec = sampling.startDelayMs / 1000UL; 
       timer.setTimer(startDelaySec); 
       Snooze.deepSleep(config_off_sleep); 
       pump_set(true, true, sampling.duty); 
@@ -131,23 +130,19 @@ void intermittent_sampling_update() {
       break; 
     }
     
-    case SAMPLING_PUMP_ON: {
-      uint32_t onSeconds = sampling.onTimeMs / 1000UL;
-      Serial.println("In turn ON");
-      if (onSeconds == 0) onSeconds = 1;
-      timer.setTimer(onSeconds);
-      Snooze.sleep(config_off_sleep);   
-      pump_set(true, true, 0);
-      sampling.lastTransitionMs = millis();
-      sampling.state = SAMPLING_PUMP_OFF;
+    case SAMPLING_PUMP_ON: 
+      if (now - sampling.lastTransitionMs >= sampling.onTimeMs) { 
+        pump_set(true, true, 0); 
+        sampling.lastTransitionMs = now; 
+        sampling.state = SAMPLING_PUMP_OFF; 
+      }
       break;
-    }
 
 
     case SAMPLING_PUMP_OFF:{
       uint32_t offSeconds = sampling.offTimeMs / 1000UL; 
       if (offSeconds == 0) offSeconds = 1; 
-      Serial.println("In turn OFF");
+
       timer.setTimer(offSeconds); 
       Snooze.sleep(config_off_sleep); 
 
@@ -184,7 +179,7 @@ void handle_ir() {
     return; 
   }
   unsigned long irCode = IrReceiver.decodedIRData.decodedRawData; 
-  
+  Serial.println(irCode);
   if (irCode == HASH) { 
     if (sampling.state == INITIALISE) { 
       sampling.state = SAMPLING_DONE; 
@@ -198,7 +193,7 @@ void handle_ir() {
     start_intermittent_sampling(0, 3, 27, duty_cycle); 
   }else if (irCode == ONE) { 
     blink_led(2); 
-    start_intermittent_sampling(12, 3, 27, duty_cycle);
+    start_intermittent_sampling(1, 3, 27, duty_cycle);
   }else if (irCode == TWO) { 
     blink_led(4); 
     start_intermittent_sampling(24, 3, 27, duty_cycle); 
@@ -211,16 +206,21 @@ void handle_ir() {
   IrReceiver.resume();
 }
 
-void pump_set(bool on, bool clockwise, int duty) { //todo: direction
-  digitalWrite(EN_MOTOR_PIN, on ? HIGH : LOW);
-  digitalWrite(DIR_MOTOR_PIN, clockwise ? LOW : HIGH); 
-  analogWrite(AN_SPEED_PIN, on ? duty * 1023 / 100 : 0); 
-}
+void pump_set(bool on, bool clockwise, int duty) {
+  digitalWrite(DIR_MOTOR_PIN, clockwise ? LOW : HIGH);
+  
+  if (on && duty > 0) {
+    digitalWrite(EN_MOTOR_PIN, HIGH);
+    analogWriteFrequency(AN_SPEED_PIN, analog_write_freq);
+    analogWrite(AN_SPEED_PIN, duty * 1023 / 100);
+  } else if (on && duty == 0) {
+    digitalWrite(EN_MOTOR_PIN, HIGH);  // Always keep EN HIGH for torque hold
+    digitalWrite(AN_SPEED_PIN, LOW);  
+  } else if (!on && duty == 0) { 
+    digitalWrite(EN_MOTOR_PIN, LOW); 
+    digitalWrite(AN_SPEED_PIN, LOW);
+  }
 
-
-void intialise_pump(int duty) { //todo: direction
-  pump_set(true, true, duty);  
-  pump_set(true, true, 0);
 }
 
 
@@ -241,11 +241,9 @@ void setup() {
 
   analogWriteFrequency(AN_SPEED_PIN, analog_write_freq); 
 
-  IrReceiver.begin(RECV_PIN, DISABLE_LED_FEEDBACK); // Start the receiver
-
-  pump_set(false, true, 0);      // EN low, PWM 0 → motor off
-  sampling = {};                 // zero all fields
+  pump_set(false, true, 0);
   sampling.state = SAMPLING_IDLE;
+  IrReceiver.begin(RECV_PIN, DISABLE_LED_FEEDBACK); // Start the receiver
 }
 
 
@@ -253,4 +251,3 @@ void loop() {
   handle_ir(); 
   intermittent_sampling_update(); 
 }
-
