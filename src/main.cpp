@@ -31,13 +31,13 @@ SnoozeBlock config_off_sleep(timer);
 
 int flag = 1;
 int counter = 0; //when counter = 2880 stop
-int analog_write_freq = 146485;
-int duty_cycle = 10;
+int analog_write_freq = 980;
+int duty_cycle = 90;
 int MAX_INIT_SECONDS = 120; 
 
 
 // Setup IR Receiver 
-int RECV_PIN = 6; // Define input pin on arduino 
+int RECV_PIN = 1; // Define input pin on arduino 
 unsigned long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
 #define ONE 0xBA45FF00   // HEX code for the 1 button
 #define TWO 0xB946FF00 // HEX code for the 2 button
@@ -55,8 +55,8 @@ unsigned long IRCode = 0; // Initialise IRCode (to be received from IR Remote)
 
 // Setup Motor Pins
 #define AN_SPEED_PIN 14
-#define EN_MOTOR_PIN 4
-#define DIR_MOTOR_PIN 3
+#define EN_MOTOR_PIN 24
+#define DIR_MOTOR_PIN 25
 
 
 
@@ -115,13 +115,14 @@ void intermittent_sampling_update() {
       break;
 
     case SAMPLING_WAIT_START:{
-      uint32_t startDelaySec = sampling.startDelayMs / 1000UL; 
-      if (startDelaySec == 0) { 
+      if (sampling.startDelayMs == 0) { 
+        Serial.println("Pump Turning On");
         pump_set(true, true, sampling.duty); 
         sampling.lastTransitionMs = millis(); 
         sampling.state = SAMPLING_PUMP_ON; 
         break;
       }
+      uint32_t startDelaySec = sampling.startDelayMs / 1000UL; 
       timer.setTimer(startDelaySec); 
       Snooze.deepSleep(config_off_sleep); 
       pump_set(true, true, sampling.duty); 
@@ -130,19 +131,23 @@ void intermittent_sampling_update() {
       break; 
     }
     
-    case SAMPLING_PUMP_ON: 
-      if (now - sampling.lastTransitionMs >= sampling.onTimeMs) { 
-        pump_set(true, true, 0); 
-        sampling.lastTransitionMs = now; 
-        sampling.state = SAMPLING_PUMP_OFF; 
-      }
+    case SAMPLING_PUMP_ON: {
+      uint32_t onSeconds = sampling.onTimeMs / 1000UL;
+      Serial.println("In turn ON");
+      if (onSeconds == 0) onSeconds = 1;
+      timer.setTimer(onSeconds);
+      Snooze.sleep(config_off_sleep);   
+      pump_set(true, true, 0);
+      sampling.lastTransitionMs = millis();
+      sampling.state = SAMPLING_PUMP_OFF;
       break;
+    }
 
 
     case SAMPLING_PUMP_OFF:{
       uint32_t offSeconds = sampling.offTimeMs / 1000UL; 
       if (offSeconds == 0) offSeconds = 1; 
-
+      Serial.println("In turn OFF");
       timer.setTimer(offSeconds); 
       Snooze.sleep(config_off_sleep); 
 
@@ -151,7 +156,7 @@ void intermittent_sampling_update() {
         sampling.state = SAMPLING_DONE; 
       }else { 
         pump_set(true, true, sampling.duty); 
-        sampling.lastTransitionMs =now;
+        sampling.lastTransitionMs =millis();
         sampling.state = SAMPLING_PUMP_ON; 
       }
       
@@ -237,6 +242,10 @@ void setup() {
   analogWriteFrequency(AN_SPEED_PIN, analog_write_freq); 
 
   IrReceiver.begin(RECV_PIN, DISABLE_LED_FEEDBACK); // Start the receiver
+
+  pump_set(false, true, 0);      // EN low, PWM 0 → motor off
+  sampling = {};                 // zero all fields
+  sampling.state = SAMPLING_IDLE;
 }
 
 
