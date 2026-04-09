@@ -33,7 +33,7 @@ int flag = 1;
 int counter = 0; //when counter = 2880 stop
 int analog_write_freq = 146485;
 int duty_cycle = 10;
-
+int MAX_INIT_SECONDS = 120; 
 
 
 // Setup IR Receiver 
@@ -65,7 +65,8 @@ enum SamplingState {
   SAMPLING_WAIT_START, 
   SAMPLING_PUMP_ON, 
   SAMPLING_PUMP_OFF, 
-  SAMPLING_DONE
+  SAMPLING_DONE, 
+  INITIALISE 
 };
 
 struct SamplingController { 
@@ -100,9 +101,19 @@ void intermittent_sampling_update() {
   uint32_t now = millis(); 
 
   switch(sampling.state) { 
+
     case SAMPLING_IDLE: 
       break; 
     
+    case INITIALISE: 
+      if (now - sampling.lastTransitionMs >= MAX_INIT_SECONDS * 1000UL) { 
+        sampling.state = SAMPLING_DONE; 
+        pump_set(false, true, 0);
+      }else{
+        pump_set(true, true, 90); 
+      }
+      break;
+
     case SAMPLING_WAIT_START:{
       uint32_t startDelaySec = sampling.startDelayMs / 1000UL; 
       if (startDelaySec == 0) { 
@@ -170,7 +181,13 @@ void handle_ir() {
   unsigned long irCode = IrReceiver.decodedIRData.decodedRawData; 
   
   if (irCode == HASH) { 
-    intialise_pump(90, 120);
+    if (sampling.state == INITIALISE) { 
+      sampling.state = SAMPLING_DONE; 
+    }else if (sampling.state == SAMPLING_IDLE) {
+      sampling.state = INITIALISE;
+      sampling.lastTransitionMs = millis();
+    }
+    
   }else if (irCode  == OK){ 
     blink_led(1); 
     start_intermittent_sampling(0, 3, 27, duty_cycle); 
@@ -186,6 +203,7 @@ void handle_ir() {
   }else if (irCode == STAR) { 
     sampling.state = SAMPLING_IDLE;
   }
+  IrReceiver.resume();
 }
 
 void pump_set(bool on, bool clockwise, int duty) { //todo: direction
@@ -195,9 +213,8 @@ void pump_set(bool on, bool clockwise, int duty) { //todo: direction
 }
 
 
-void intialise_pump(int duty, int time) { //todo: direction
-  pump_set(true, true, duty); 
-  delay(time * 1000);  
+void intialise_pump(int duty) { //todo: direction
+  pump_set(true, true, duty);  
   pump_set(true, true, 0);
 }
 
