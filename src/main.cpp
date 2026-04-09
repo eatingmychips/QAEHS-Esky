@@ -236,7 +236,7 @@ void setup() {
 
   analogWriteFrequency(AN_SPEED_PIN, analog_write_freq); 
 
-  IrReceiver.begin(RECV_PIN, LED_FEEDBACK_DISABLED_COMPLETELY); // Start the receiver
+  IrReceiver.begin(RECV_PIN, DISABLE_LED_FEEDBACK); // Start the receiver
 }
 
 
