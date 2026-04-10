@@ -31,7 +31,7 @@ SnoozeBlock config_off_sleep(timer);
 
 int flag = 1;
 int counter = 0; //when counter = 2880 stop
-int analog_write_freq = 146485;
+int analog_write_freq = 20000;
 int duty_cycle = 10;
 int MAX_INIT_SECONDS = 120; 
 
@@ -86,8 +86,8 @@ time_t getTeensy3Time() {
 
 SamplingController sampling; 
 
-void start_intermittent_sampling(uint32_t delay, uint32_t onTimeSec, uint32_t offTimeSec, int dutycycle){ 
-  sampling.startDelayMs = delay * 3600000UL;
+void start_intermittent_sampling(int delaySecs, uint32_t onTimeSec, uint32_t offTimeSec, int dutycycle){ 
+  sampling.startDelayMs = delaySecs * 1000UL;
   sampling.onTimeMs = onTimeSec * 1000UL; 
   sampling.offTimeMs = offTimeSec * 1000UL; 
   sampling.lastTransitionMs = millis(); 
@@ -123,7 +123,9 @@ void intermittent_sampling_update() {
         break;
       }
       timer.setTimer(startDelaySec); 
-      Snooze.deepSleep(config_off_sleep); 
+      Snooze.sleep(config_off_sleep); 
+      // Re-apply PWM frequency after sleep restores CPU to full speed
+      analogWriteFrequency(AN_SPEED_PIN, analog_write_freq); 
       pump_set(true, true, sampling.duty); 
       sampling.lastTransitionMs = millis(); 
       sampling.state = SAMPLING_PUMP_ON;
@@ -139,22 +141,47 @@ void intermittent_sampling_update() {
       break;
 
 
-    case SAMPLING_PUMP_OFF:{
-      uint32_t offSeconds = sampling.offTimeMs / 1000UL; 
-      if (offSeconds == 0) offSeconds = 1; 
+    // case SAMPLING_PUMP_OFF:{
+    //   uint32_t offSeconds = sampling.offTimeMs / 1000UL;
+    //   if (offSeconds == 0) offSeconds = 1;
+    //   timer.setTimer(offSeconds);
+    //   Snooze.sleep(config_off_sleep);
 
-      timer.setTimer(offSeconds); 
-      Snooze.sleep(config_off_sleep); 
+    //   // Re-apply PWM frequency after sleep restores CPU to full speed
+    //   analogWriteFrequency(AN_SPEED_PIN, analog_write_freq); 
 
-      sampling.cyclesDone++; 
-      if (sampling.cyclesDone >= sampling.maxCycles){ 
-        sampling.state = SAMPLING_DONE; 
-      }else { 
-        pump_set(true, true, sampling.duty); 
-        sampling.lastTransitionMs =millis();
-        sampling.state = SAMPLING_PUMP_ON; 
+    //   sampling.cyclesDone++;
+    //   if (sampling.cyclesDone >= sampling.maxCycles) {
+    //     sampling.state = SAMPLING_DONE;
+    //   } else {
+    //     pump_set(true, true, sampling.duty);
+    //     sampling.lastTransitionMs = millis();
+    //     sampling.state = SAMPLING_PUMP_ON;
+    //   }
+
+    //   break;
+    // }
+
+    case SAMPLING_PUMP_OFF: {
+      pump_set(true, true, 0);
+
+      uint32_t offStart = millis();
+      uint32_t offMs    = sampling.offTimeMs;
+
+      // Simple light-sleep style wait for OFF duration
+      while (millis() - offStart < offMs) {
+        delay(10);          // small idle chunk; adjust if you like
       }
-      
+
+      sampling.cyclesDone++;
+      if (sampling.cyclesDone >= sampling.maxCycles) {
+        sampling.state = SAMPLING_DONE;
+      } else {
+        pump_set(true, true, sampling.duty);
+        sampling.lastTransitionMs = millis();
+        sampling.state = SAMPLING_PUMP_ON;
+      }
+
       break;
     }
 
@@ -193,15 +220,13 @@ void handle_ir() {
     start_intermittent_sampling(0, 3, 27, duty_cycle); 
   }else if (irCode == ONE) { 
     blink_led(2); 
-    start_intermittent_sampling(1, 3, 27, duty_cycle);
+    start_intermittent_sampling(10, 3, 27, duty_cycle);
   }else if (irCode == TWO) { 
     blink_led(4); 
-    start_intermittent_sampling(24, 3, 27, duty_cycle); 
+    start_intermittent_sampling(24*60*60, 3, 27, duty_cycle); 
   }else if (irCode == THREE) { 
     blink_led(6); 
-    start_intermittent_sampling(48, 3, 27, duty_cycle); 
-  }else if (irCode == STAR) { 
-    sampling.state = SAMPLING_IDLE;
+    start_intermittent_sampling(48*60*60, 3, 27, duty_cycle); 
   }
   IrReceiver.resume();
 }
@@ -214,13 +239,14 @@ void pump_set(bool on, bool clockwise, int duty) {
     analogWriteFrequency(AN_SPEED_PIN, analog_write_freq);
     analogWrite(AN_SPEED_PIN, duty * 1023 / 100);
   } else if (on && duty == 0) {
-    digitalWrite(EN_MOTOR_PIN, HIGH);  // Always keep EN HIGH for torque hold
-    digitalWrite(AN_SPEED_PIN, LOW);  
-  } else if (!on && duty == 0) { 
-    digitalWrite(EN_MOTOR_PIN, LOW); 
-    digitalWrite(AN_SPEED_PIN, LOW);
+    digitalWrite(EN_MOTOR_PIN, HIGH);     
+    analogWriteFrequency(AN_SPEED_PIN, analog_write_freq);
+    analogWrite(AN_SPEED_PIN, 0);          // PWM off state via PWM hardware
+  } else if (!on) {
+    digitalWrite(EN_MOTOR_PIN, LOW);
+    analogWriteFrequency(AN_SPEED_PIN, analog_write_freq);
+    analogWrite(AN_SPEED_PIN, 0);
   }
-
 }
 
 
@@ -248,6 +274,9 @@ void setup() {
 
 
 void loop() {
-  handle_ir(); 
+    // Only react to IR when idle or INITIALISE
+  if (sampling.state == SAMPLING_IDLE || sampling.state == INITIALISE) {
+    handle_ir();
+  }
   intermittent_sampling_update(); 
 }
