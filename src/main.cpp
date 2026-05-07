@@ -32,7 +32,7 @@ SnoozeBlock config_off_sleep(timer);
 int flag = 1;
 int counter = 0; //when counter = 2880 stop
 int analog_write_freq = 20000;
-int duty_cycle = 10;
+int duty_cycle = 7;
 int MAX_INIT_SECONDS = 120; 
 
 
@@ -102,10 +102,11 @@ void intermittent_sampling_update() {
 
   switch(sampling.state) { 
 
-    case SAMPLING_IDLE: 
+    case SAMPLING_IDLE: {
       break; 
-    
-    case INITIALISE: 
+    }
+
+    case INITIALISE: {
       if (now - sampling.lastTransitionMs >= MAX_INIT_SECONDS * 1000UL) { 
         sampling.state = SAMPLING_DONE; 
         pump_set(false, true, 0);
@@ -113,6 +114,7 @@ void intermittent_sampling_update() {
         pump_set(true, true, 90); 
       }
       break;
+    }
 
     case SAMPLING_WAIT_START:{
       uint32_t startDelaySec = sampling.startDelayMs / 1000UL; 
@@ -132,14 +134,14 @@ void intermittent_sampling_update() {
       break; 
     }
     
-    case SAMPLING_PUMP_ON: 
+    case SAMPLING_PUMP_ON: {
       if (now - sampling.lastTransitionMs >= sampling.onTimeMs) { 
-        pump_set(true, true, 0); 
+        pump_set(false, true, 0); 
         sampling.lastTransitionMs = now; 
         sampling.state = SAMPLING_PUMP_OFF; 
       }
       break;
-
+    }
 
     // case SAMPLING_PUMP_OFF:{
     //   uint32_t offSeconds = sampling.offTimeMs / 1000UL;
@@ -163,32 +165,28 @@ void intermittent_sampling_update() {
     // }
 
     case SAMPLING_PUMP_OFF: {
-      pump_set(true, true, 0);
+      // ensure pump is off
+      pump_set(false, true, 0);
 
-      uint32_t offStart = millis();
-      uint32_t offMs    = sampling.offTimeMs;
-
-      // Simple light-sleep style wait for OFF duration
-      while (millis() - offStart < offMs) {
-        delay(10);          // small idle chunk; adjust if you like
+      uint32_t now = millis();
+      if (now - sampling.lastTransitionMs >= sampling.offTimeMs) {
+          sampling.cyclesDone++;
+          if (sampling.cyclesDone >= sampling.maxCycles) {
+              sampling.state = SAMPLING_DONE;
+          } else {
+              pump_set(true, true, sampling.duty);
+              sampling.lastTransitionMs = now;
+              sampling.state = SAMPLING_PUMP_ON;
+          }
       }
-
-      sampling.cyclesDone++;
-      if (sampling.cyclesDone >= sampling.maxCycles) {
-        sampling.state = SAMPLING_DONE;
-      } else {
-        pump_set(true, true, sampling.duty);
-        sampling.lastTransitionMs = millis();
-        sampling.state = SAMPLING_PUMP_ON;
-      }
-
       break;
     }
 
-    case SAMPLING_DONE: 
+    case SAMPLING_DONE: {
       pump_set(false, true, 0); 
       sampling.state = SAMPLING_IDLE; 
       break; 
+    }
   }
 }
 
@@ -220,7 +218,7 @@ void handle_ir() {
     start_intermittent_sampling(0, 3, 27, duty_cycle); 
   }else if (irCode == ONE) { 
     blink_led(2); 
-    start_intermittent_sampling(10, 3, 27, duty_cycle);
+    start_intermittent_sampling(12*60*60, 3, 27, duty_cycle);
   }else if (irCode == TWO) { 
     blink_led(4); 
     start_intermittent_sampling(24*60*60, 3, 27, duty_cycle); 
